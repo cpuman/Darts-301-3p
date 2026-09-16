@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#0a0a0f" />
-  <meta name="description" content="Darts 301 — 2 Player Double-Out Scorer" />
+  <meta name="description" content="Darts 301 — 3 Player Double-Out Scorer" />
   <title>Darts 301</title>
   <link rel="manifest" href="manifest.json" />
   <style>
@@ -43,8 +43,9 @@ const START = 301;
 const CO = {
   bg:"#0a0a0f",sf:"#14141e",red:"#ff3b30",grn:"#30d158",gld:"#ffd60a",
   txt:"#f5f5f7",mut:"#8e8e93",bdr:"rgba(255,255,255,0.08)",
-  bust:"#ff6b6b",p1:"#5e9eff",p2:"#ff6bcb",
+  bust:"#ff6b6b",p1:"#5e9eff",p2:"#ff6bcb",p3:"#30d158",
 };
+const playerCol = (i) => [CO.p1, CO.p2, CO.p3][i % 3];
 
 /* ─── score calc ─── */
 function calcHit(x, y, cx, cy, R) {
@@ -67,9 +68,9 @@ const CK={170:"T20 T20 Bull",167:"T20 T19 Bull",164:"T20 T18 Bull",161:"T20 T17 
 /* ─── GAME REDUCER ─── */
 const mkPlayer = (name) => ({ name, score: START, turnStart: START, history: [], totalDarts: 0 });
 
-const initialState = (n1,n2) => ({
+const initialState = (n1 = "Player 1", n2 = "Player 2", n3 = "Player 3") => ({
   screen: "menu",
-  players: [mkPlayer(n1), mkPlayer(n2)],
+  players: [mkPlayer(n1), mkPlayer(n2), mkPlayer(n3)],
   active: 0,
   round: 1,
   darts: [],
@@ -83,7 +84,7 @@ const initialState = (n1,n2) => ({
 function reducer(state, action) {
   switch (action.type) {
     case "START_GAME": {
-      return { ...initialState(action.n1, action.n2), screen: "play" };
+      return { ...initialState(action.n1, action.n2, action.n3), screen: "play" };
     }
     case "SET_SCREEN": {
       return { ...state, screen: action.screen };
@@ -172,8 +173,8 @@ function reducer(state, action) {
           totalDarts: pl.totalDarts + state.darts.length,
         };
       });
-      const nextActive = state.active === 0 ? 1 : 0;
-      const nextRound = state.active === 1 ? state.round + 1 : state.round;
+      const nextActive = (state.active + 1) % state.players.length;
+      const nextRound = nextActive === 0 ? state.round + 1 : state.round;
       return {
         ...state,
         players: updatedPlayers,
@@ -191,7 +192,11 @@ function reducer(state, action) {
       return { ...state, screen: "play" };
     }
     case "RESET": {
-      return initialState("Player 1", "Player 2");
+      return initialState(
+        state.players[0]?.name || "Player 1",
+        state.players[1]?.name || "Player 2",
+        state.players[2]?.name || "Player 3"
+      );
     }
     default: return state;
   }
@@ -327,8 +332,8 @@ function Board({ size, darts, onTap, disabled }) {
 
 /* ─── MAIN ─── */
 function App() {
-  const [state, dispatch] = useReducer(reducer, initialState("Player 1", "Player 2"));
-  const [names, setNames] = useState(["Player 1", "Player 2"]);
+  const [names, setNames] = useState(["Player 1", "Player 2", "Player 3"]);
+  const [state, dispatch] = useReducer(reducer, initialState("Player 1", "Player 2", "Player 3"));
   const vidRef = useRef(null);
   const streamRef = useRef(null);
   const [camOn, setCamOn] = useState(false);
@@ -345,7 +350,7 @@ function App() {
 
   const { screen, players, active, round, darts, hits, busted, winner, lastHit, flash } = state;
   const ap = players[active];
-  const pc = active === 0 ? CO.p1 : CO.p2;
+  const pc = playerCol(active);
 
   // Camera
   useEffect(() => {
@@ -370,7 +375,7 @@ function App() {
 
   const canEnd = darts.length === 3 || busted;
   const checkout = CK[ap.score];
-  const otherIdx = active === 0 ? 1 : 0;
+  const nextIdx = (active + 1) % players.length;
 
   /* ── MENU ── */
   if (screen === "menu") return (
@@ -378,19 +383,19 @@ function App() {
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 72, marginBottom: 8, filter: "drop-shadow(0 0 20px rgba(255,59,48,.3))" }}>&#127919;</div>
         <h1 style={{ fontSize: 48, fontWeight: 900, margin: "0 0 4px", letterSpacing: -2, background: "linear-gradient(135deg,#fff,#bbb)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>301</h1>
-        <p style={{ color: CO.mut, fontSize: 15, margin: 0, letterSpacing: 2, fontWeight: 500 }}>2 PLAYER &middot; DOUBLE OUT</p>
+        <p style={{ color: CO.mut, fontSize: 15, margin: 0, letterSpacing: 2, fontWeight: 500 }}>3 PLAYER &middot; DOUBLE OUT</p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 300 }}>
-        {[0, 1].map(i => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: CO.sf, borderRadius: 14, padding: "4px 4px 4px 16px", border: `1px solid ${i === 0 ? CO.p1 : CO.p2}30` }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: i === 0 ? CO.p1 : CO.p2, flexShrink: 0 }} />
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: CO.sf, borderRadius: 14, padding: "4px 4px 4px 16px", border: `1px solid ${playerCol(i)}30` }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: playerCol(i), flexShrink: 0 }} />
             <input value={names[i]} onChange={e => setNames(p => p.map((n, j) => j === i ? e.target.value : n))} placeholder={`Player ${i + 1}`}
               style={{ flex: 1, background: "none", border: "none", color: CO.txt, fontSize: 16, fontWeight: 600, fontFamily: F, padding: "12px 4px", outline: "none" }} />
           </div>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 300 }}>
-        <button onClick={() => dispatch({ type: "START_GAME", n1: names[0] || "Player 1", n2: names[1] || "Player 2" })}
+        <button onClick={() => dispatch({ type: "START_GAME", n1: names[0] || "Player 1", n2: names[1] || "Player 2", n3: names[2] || "Player 3" })}
           style={{ padding: 18, borderRadius: 16, border: "none", background: `linear-gradient(135deg,${CO.red},#cc2d24)`, color: "#fff", fontSize: 17, fontWeight: 700, fontFamily: F, cursor: "pointer", boxShadow: `0 8px 32px ${CO.red}40` }}>
           &#9654; Start Game
         </button>
@@ -409,7 +414,7 @@ function App() {
       <button onClick={() => dispatch({ type: "SET_SCREEN", screen: "menu" })} style={{ background: "none", border: "none", color: CO.red, fontSize: 17, fontWeight: 600, fontFamily: F, cursor: "pointer", padding: "8px 0", marginBottom: 20 }}>&larr; Back</button>
       <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 20, letterSpacing: -1 }}>301 Rules</h2>
       {[
-        ["\ud83d\udc65", "2 Players", "Take turns. Each player starts at 301 and counts down."],
+        ["\ud83d\udc65", "3 Players", "Take turns. Each player starts at 301 and counts down."],
         ["\ud83c\udfaf", "3 Darts / Turn", "Throw 3 darts each turn. Tap the board where each dart lands."],
         ["\u270c\ufe0f", "Double Out", "Your final dart must land on a double or bullseye to hit exactly 0."],
         ["\ud83d\udca5", "Bust", "If your score drops below 0, hits 1, or reaches 0 without a double \u2014 BUST. Score resets to what it was at the start of your turn."],
@@ -427,11 +432,11 @@ function App() {
   /* ── SWITCHING ── */
   if (screen === "switching") return (
     <div style={{ minHeight: "100dvh", background: CO.bg, fontFamily: F, color: CO.txt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 24 }}>
-      <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 340 }}>
+      <div style={{ display: "flex", gap: 10, width: "100%", maxWidth: 380 }}>
         {players.map((p, i) => (
-          <div key={i} style={{ flex: 1, textAlign: "center", padding: "16px 12px", background: CO.sf, borderRadius: 14, border: `2px solid ${i === active ? (i === 0 ? CO.p1 : CO.p2) : CO.bdr}` }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: i === 0 ? CO.p1 : CO.p2, letterSpacing: 1, marginBottom: 6 }}>{p.name.toUpperCase()}</div>
-            <div style={{ fontSize: 40, fontWeight: 900 }}>{p.score}</div>
+          <div key={i} style={{ flex: 1, textAlign: "center", padding: "14px 8px", background: i === active ? `${playerCol(i)}12` : CO.sf, borderRadius: 14, border: `2px solid ${i === active ? playerCol(i) : CO.bdr}` }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: playerCol(i), letterSpacing: 1, marginBottom: 6 }}>{p.name.toUpperCase()}</div>
+            <div style={{ fontSize: 32, fontWeight: 900 }}>{p.score}</div>
           </div>
         ))}
       </div>
@@ -452,17 +457,18 @@ function App() {
   /* ── WIN ── */
   if (screen === "win" && winner !== null) {
     const w = players[winner];
+    const wc = playerCol(winner);
     return (
       <div style={{ minHeight: "100dvh", background: CO.bg, fontFamily: F, color: CO.txt, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, gap: 20 }}>
         <div style={{ fontSize: 80, animation: "pop .6s ease-out" }}>&#127942;</div>
-        <h1 style={{ fontSize: 36, fontWeight: 900, margin: 0, color: winner === 0 ? CO.p1 : CO.p2, textShadow: `0 0 40px ${winner === 0 ? CO.p1 : CO.p2}40`, textAlign: "center" }}>{w.name} wins!</h1>
+        <h1 style={{ fontSize: 36, fontWeight: 900, margin: 0, color: wc, textShadow: `0 0 40px ${wc}40`, textAlign: "center" }}>{w.name} wins!</h1>
         <p style={{ color: CO.mut, fontSize: 15, margin: 0 }}>{w.totalDarts} darts &middot; {w.history.length + 1} turns</p>
-        <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 340 }}>
+        <div style={{ display: "flex", gap: 10, width: "100%", maxWidth: 380 }}>
           {players.map((p, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", padding: "16px 12px", background: CO.sf, borderRadius: 14, border: `2px solid ${i === winner ? (i === 0 ? CO.p1 : CO.p2) : CO.bdr}` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: i === 0 ? CO.p1 : CO.p2, letterSpacing: 1, marginBottom: 8 }}>{p.name.toUpperCase()}</div>
-              <div style={{ fontSize: 36, fontWeight: 900, marginBottom: 4 }}>{p.score}</div>
-              <div style={{ fontSize: 11, color: CO.mut }}>{p.totalDarts + (i === active ? darts.length : 0)} darts</div>
+            <div key={i} style={{ flex: 1, textAlign: "center", padding: "14px 8px", background: i === winner ? `${playerCol(i)}12` : CO.sf, borderRadius: 14, border: `2px solid ${i === winner ? playerCol(i) : CO.bdr}` }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: playerCol(i), letterSpacing: 1, marginBottom: 8 }}>{p.name.toUpperCase()}</div>
+              <div style={{ fontSize: 30, fontWeight: 900, marginBottom: 4 }}>{p.score}</div>
+              <div style={{ fontSize: 11, color: CO.mut }}>{p.totalDarts} darts</div>
             </div>
           ))}
         </div>
@@ -500,12 +506,12 @@ function App() {
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           {players.map((p, i) => (
             <div key={i} style={{ flex: 1, textAlign: "center", padding: "8px 6px", borderRadius: 14,
-              background: i === active ? `${i === 0 ? CO.p1 : CO.p2}10` : "rgba(255,255,255,.02)",
-              border: `2px solid ${i === active ? `${i === 0 ? CO.p1 : CO.p2}50` : CO.bdr}` }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? CO.p1 : CO.p2, letterSpacing: 1, marginBottom: 2 }}>
+              background: i === active ? `${playerCol(i)}12` : "rgba(255,255,255,.02)",
+              border: `2px solid ${i === active ? `${playerCol(i)}60` : CO.bdr}` }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: playerCol(i), letterSpacing: 1, marginBottom: 2 }}>
                 {p.name.toUpperCase()}{i === active ? " \u25C0" : ""}
               </div>
-              <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: -2, lineHeight: 1.1,
+              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, lineHeight: 1.1,
                 color: i === active && busted ? CO.bust : CO.txt }}>
                 {i === active && busted ? ap.turnStart : p.score}
               </div>
@@ -560,7 +566,7 @@ function App() {
               background: busted ? `linear-gradient(135deg,${CO.bust},#cc4444)` : `linear-gradient(135deg,${pc},${pc}cc)`,
               color: "#fff", fontSize: 16, fontWeight: 700, fontFamily: F, cursor: "pointer",
               boxShadow: `0 8px 32px ${busted ? CO.bust : pc}25`, marginBottom: 14 }}>
-            {busted ? "Bust \u2014 End Turn \u2192" : `End Turn \u2192 ${players[otherIdx].name}`}
+            {busted ? "Bust \u2014 End Turn \u2192" : `End Turn \u2192 ${players[nextIdx].name}`}
           </button>
         )}
 

@@ -1,7 +1,7 @@
 {
   "name": "Darts 301",
   "short_name": "Darts 301",
-  "description": "2 Player Double-Out Darts Scorer",
+  "description": "3 Player Double-Out Darts Scorer",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0a0a0f",
